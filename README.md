@@ -13,3 +13,10 @@ Say or type one sentence; the system turns it into a checked, saved, audited vis
     cd backend && python -m venv .venv && . .venv/bin/activate && pip install -r requirements.txt
     python -m pytest -q
     cd ../frontend && npm install && npm test
+
+## Repository mirror
+
+The `backend-partial-frontend` branch is also maintained in the mirror repository:
+https://github.com/avantika1036/CHECKIN.AI
+
+See [docs/repository-mirror.md](docs/repository-mirror.md) for the branch sync commands.
