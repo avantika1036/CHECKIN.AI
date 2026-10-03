@@ -1,0 +1,12 @@
+fastapi==0.142.2
+uvicorn[standard]==0.54.0
+psycopg[binary,pool]==3.3.6
+pydantic==2.13.5
+pydantic-settings==2.15.0
+PyJWT==2.15.1
+bcrypt==5.0.0
+google-genai==2.26.0
+langgraph==1.2.12
+langgraph-checkpoint-postgres==3.1.2
+pytest==9.1.1
+httpx==0.28.1
