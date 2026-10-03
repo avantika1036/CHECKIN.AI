@@ -1,0 +1,24 @@
+@import "tailwindcss";
+@import "@fontsource/atkinson-hyperlegible/400.css";
+@import "@fontsource/atkinson-hyperlegible/700.css";
+
+@theme {
+  --font-sans: "Atkinson Hyperlegible", system-ui, sans-serif;
+  --color-paper: #f2f4f6;
+  --color-ink: #15232b;
+  --color-muted: #566872;
+  --color-line: #d3dbe1;
+  --color-go: #0e6b50;
+  --color-go-soft: #ddf1ea;
+  --color-warn: #8a5200;
+  --color-warn-soft: #fbebcb;
+  --color-stop: #b3261e;
+  --color-stop-soft: #fbe0dd;
+  --color-mark: #e3ecf6;
+}
+
+body { background: var(--color-paper); color: var(--color-ink); font-family: var(--font-sans); }
+input, textarea, select, button { font: inherit; }
+:focus-visible { outline: 3px solid #2a6fdb; outline-offset: 2px; }
+.digits { font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
