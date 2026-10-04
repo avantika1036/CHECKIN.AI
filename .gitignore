@@ -6,10 +6,9 @@ __pycache__/
 node_modules/
 dist/
 *.log
-asr_benchmark/reports/
 asr_benchmark/data/*.wav
 asr_benchmark/data/*.mp3
 asr_benchmark/data/*.m4a
 asr_benchmark/data/*.webm
 asr_benchmark/data/*.ogg
-asr_benchmark/runs/
+asr_benchmark/runs/audio
