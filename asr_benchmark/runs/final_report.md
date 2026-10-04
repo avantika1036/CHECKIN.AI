@@ -4,10 +4,10 @@ Saved test cases: 20
 
 | Provider | Cases | Successful | Mean WER | Mean CER | Exact match | Mean latency (s) |
 |---|---:|---:|---:|---:|---:|---:|
-| browser:web-speech | 20 | 20 | 64.21% | 61.27% | 15.00% | 5.83 |
-| sarvam:saaras:v4 | 20 | 20 | 17.83% | 14.09% | 45.00% | 0.55 |
-| whisper:base | 20 | 20 | 75.89% | 89.08% | 5.00% | 2.95 |
-| whisper:large | 20 | 20 | 37.78% | 25.29% | 30.00% | 17.61 |
-| whisper:medium | 20 | 20 | 52.99% | 55.21% | 15.00% | 26.26 |
-| whisper:small | 20 | 20 | 62.09% | 55.89% | 15.00% | 10.46 |
-| whisper:tiny | 20 | 20 | 81.76% | 105.82% | 5.00% | 2.05 |
+| browser:web-speech | 20 | 20 | 21.64% | 15.49% | 30.00% | 5.72 |
+| sarvam:saaras:v4 | 8 | 8 | 9.13% | 2.56% | 50.00% | 0.52 |
+| whisper:base | 7 | 7 | 26.84% | 15.78% | 14.29% | 1.18 |
+| whisper:large | 7 | 7 | 7.94% | 2.89% | 57.14% | 11.26 |
+| whisper:medium | 7 | 7 | 12.02% | 3.98% | 28.57% | 6.91 |
+| whisper:small | 7 | 7 | 13.61% | 3.88% | 42.86% | 2.30 |
+| whisper:tiny | 7 | 7 | 39.31% | 23.90% | 14.29% | 1.12 |

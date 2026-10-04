@@ -120,19 +120,28 @@ def _write_graphs(report: dict, output: Path) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--manifest", type=Path, default=Path("data/asr_manifest.jsonl"))
+    parser.add_argument("--audio-root", type=Path)
     parser.add_argument("--output-dir", type=Path, default=Path("reports/final"))
     parser.add_argument("--split", choices=["dev", "test", "all"], default="test")
     parser.add_argument("--whisper-model", nargs="+", default=["tiny", "base", "small"])
+    parser.add_argument("--no-whisper", action="store_true")
     parser.add_argument("--no-sarvam", action="store_true")
     parser.add_argument("--timeout", type=float, default=60)
     args = parser.parse_args()
-    cases = load_manifest(args.manifest, split=None if args.split == "all" else args.split)
+    cases = load_manifest(
+        args.manifest,
+        audio_root=args.audio_root,
+        split=None if args.split == "all" else args.split,
+    )
     providers = []
-    for model in args.whisper_model:
-        providers.append(WhisperProvider(model))
+    if not args.no_whisper:
+        for model in args.whisper_model:
+            providers.append(WhisperProvider(model))
     if not args.no_sarvam:
         import os
         providers.append(SarvamProvider(os.environ.get("SARVAM_API_KEY", ""), "saaras:v4", args.timeout))
+    if not providers:
+        parser.error("select at least one provider")
     report = run(cases, providers)
     write_evaluation_outputs(report, args.output_dir)
     print(f"Evaluation complete. Reports and graphs written to {args.output_dir}")

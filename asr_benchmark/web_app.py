@@ -215,7 +215,19 @@ class Handler(BaseHTTPRequestHandler):
                     previous = json.loads(line)
                     if previous.get("case_id") != case_id:
                         existing.append(previous)
-        existing.append(record)
+                    else:
+                        previous_results = {
+                            result.get("provider"): result
+                            for result in previous.get("results", [])
+                            if result.get("provider")
+                        }
+                        for result in results:
+                            provider = result.get("provider")
+                            if provider:
+                                previous_results[provider] = result
+                        record["results"] = list(previous_results.values())
+        if not any(item.get("case_id") == case_id for item in existing):
+            existing.append(record)
         temporary = RUNS / "results.jsonl.tmp"
         temporary.write_text(
             "\n".join(json.dumps(item, ensure_ascii=False) for item in existing) + "\n",
