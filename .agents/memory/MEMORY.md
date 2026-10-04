@@ -1,0 +1,1 @@
+- [Structured-output route testing](provider-structured-output-testing.md) — test each provider schema and response adapter independently; one successful route is not enough.

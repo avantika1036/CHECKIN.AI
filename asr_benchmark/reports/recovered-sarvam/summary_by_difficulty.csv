@@ -1,0 +1,4 @@
+provider,difficulty,cases,successful,mean_wer,mean_cer,exact_match_rate,mean_latency_seconds
+sarvam:saaras:v4,easy,4,4,0.0,0.0,1.0,0.389404
+sarvam:saaras:v4,hard,9,9,0.357571,0.288121,0.111111,0.442419
+sarvam:saaras:v4,medium,7,7,0.049603,0.032072,0.571429,0.408899

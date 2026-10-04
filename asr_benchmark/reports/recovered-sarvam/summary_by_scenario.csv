@@ -1,0 +1,8 @@
+provider,scenario,cases,successful,mean_wer,mean_cer,exact_match_rate,mean_latency_seconds
+sarvam:saaras:v4,accent,1,1,0.222222,0.116279,0.0,0.42042
+sarvam:saaras:v4,clean,4,4,0.0,0.0,1.0,0.389404
+sarvam:saaras:v4,mixed,2,2,0.683334,0.586207,0.0,0.381894
+sarvam:saaras:v4,names,4,4,0.086806,0.056126,0.25,0.408104
+sarvam:saaras:v4,noise,3,3,0.043418,0.043333,0.333333,0.456018
+sarvam:saaras:v4,phone,3,3,0.499666,0.391465,0.0,0.476502
+sarvam:saaras:v4,purpose,3,3,0.0,0.0,1.0,0.40996

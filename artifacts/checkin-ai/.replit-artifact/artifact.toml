@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "checkIn.ai"
+description = "A configurable visitor workflow app for front-desk teams to register visitors by voice or text, route host approvals, track arrivals, and review activity."
+version = "1.0.0"
+id = "artifacts/checkin-ai"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24767
+
+[services.development]
+run = "pnpm --filter @workspace/checkin-ai run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/checkin-ai", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/checkin-ai/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24767"
+BASE_PATH = "/"

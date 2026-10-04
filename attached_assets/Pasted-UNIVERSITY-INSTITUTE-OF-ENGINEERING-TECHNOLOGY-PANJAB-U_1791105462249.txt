@@ -1,0 +1,109 @@
+UNIVERSITY INSTITUTE OF ENGINEERING & TECHNOLOGY
+PANJAB UNIVERSITY, CHANDIGARH
+MINOR PROJECT SYNOPSIS
+CHECKIN.AI
+A Configurable Multi-Agent AI Workflow Automation Platform for Administrative Operations
+Bachelor of Engineering (Computer Science & Engineering)
+Batch 2023-2027
+Submitted by:
+Avantika Pandey — [UE233025]
+Gayatri Mehta — [UE233040]
+Jeevanjot — [UE233051]
+
+
+Under the Guidance of
+Dr. Naveen Aggarwal, Professor, Department of CSE
+Academic Year: 2026–27
+
+
+
+
+
+
+
+
+
+1. Introduction
+Every organization — universities, housing societies, museums, and offices alike — repeats the same categories of administrative work: registering visitors, logging maintenance requests, tracking inventory, and generating reports. Employees currently do this by opening dedicated software, locating the correct form, and manually typing 8–12 fields per transaction. checkIn.ai proposes an alternative: the employee simply describes the event in natural language (voice or text), and a coordinated team of specialized AI agents plans, validates, executes, and records the entire workflow on their behalf.
+2. Problem Statement
+Existing tools solve only one piece of this problem — Excel is fully manual, Google Forms only collects data, ERP systems (SAP, Oracle) are expensive and complex, and visitor-management or ticketing tools are single-purpose. General-purpose chatbots like ChatGPT can converse but cannot safely execute a secure, auditable business workflow. There is no lightweight solution that combines natural-language interaction, safe workflow execution, database automation, and analytics in one configurable platform.
+3. Objectives
+•    Design a multi-agent architecture in which a Planner Agent classifies intent and routes the request to a single-responsibility specialized agent (Visitor, Query, Analytics, Notification, Security, Audit).
+•    Interpose a Business Rule Engine between the LLM and the database so that no AI output is written to storage without deterministic validation.
+•    Implement one fully functional module — Visitor Management — as a proof of concept, with the architecture kept generic enough to extend to other administrative workflows without redesigning the AI layer.
+•    Support natural-language querying and automatic analytics/reporting over the stored data.
+•    Evaluate the system on objective metrics (registration time, speech and intent accuracy, SQL-generation accuracy) rather than a subjective demo.
+4. Proposed System Architecture
+User input flows through speech recognition and a Planner Agent into a layer of specialized agents, then through a Business Rule Engine before ever touching the database — this separation is the core safeguard against AI errors reaching persistent storage.
+
+Fig. 1 — Layered system architecture: perception, planning, specialized agents, rule validation, storage, output.
+5. Workflow — Worked Example
+A single spoken sentence from a security guard is enough to complete an entire visitor-registration transaction end-to-end, typically within 10–15 seconds, with every step logged for audit.
+
+Fig. 2 — End-to-end request flow for a single visitor-registration event.
+The same Visitor Agent is reused unchanged across a university, a housing society, or a museum — only the configured business rules (approval chains, required fields, notification targets) differ. This configurability, rather than the visitor-management demo itself, is the actual product.
+6. Technology Stack
+Layer
+Choice
+Frontend
+React, Tailwind CSS, Shadcn UI
+Backend
+FastAPI (Python)
+Agent Orchestration
+LangGraph
+Language Model
+OpenAI / Gemini API
+Speech-to-Text
+Whisper (multilingual)
+Database
+PostgreSQL
+Caching
+Redis
+Vector Store
+Qdrant or ChromaDB
+Deployment
+Docker, GitHub Actions
+
+ 
+7. Anticipated Challenges and Mitigations
+Challenge
+Mitigation Built Into Design
+LLM hallucination
+Every extracted field is re-validated by the Business Rule Engine before it reaches the database; the LLM never writes directly to storage.
+Speech recognition errors
+Confidence scoring on ASR output; below-threshold results trigger a spoken/typed confirmation step.
+Duplicate visitor entries
+Fuzzy matching on phone/email plus lookup against prior visit history.
+Multilingual input (Hindi / Punjabi / English)
+Multilingual ASR and LLM prompts; database always stores normalized, language-independent structured data.
+Unauthorized or destructive commands
+Role-Based Access Control, mandatory confirmation for critical actions, full audit logging.
+Network/internet failure
+Requests queue locally and synchronize once connectivity is restored.
+
+ 
+8. Known Limitations of the Proposed Design
+Limitation
+Planned Response
+Dependency on paid external LLM APIs (cost, latency, rate limits)
+Abstract the LLM call behind a single interface so a self-hosted open-weight model can be swapped in later; cache repeated intent/entity patterns.
+Only one module (Visitor Management) is fully built in this semester
+Scope is intentionally narrow so the agent + rule-engine architecture can be demonstrated end-to-end and proven reusable before other modules are added.
+Misclassification by the Planner Agent can route a request to the wrong specialized agent
+Confidence-based fallback: low-confidence intents are shown to the user for a one-tap confirmation instead of being auto-executed.
+Visitor data is personal information (name, phone, purpose of visit)
+Role-based access, encrypted storage at rest, and a data-retention/purge policy will be defined before any real deployment.
+Evaluation metrics (accuracy, F1, etc.) need a labelled dataset that does not yet exist
+A small manually annotated set of sample utterances will be created during development to benchmark entity-extraction and intent accuracy.
+
+ 
+9. Evaluation Metrics
+Visitor registration time · speech recognition accuracy (WER) · intent classification accuracy · entity extraction F1 score · SQL generation accuracy · user correction rate · duplicate detection rate · average end-to-end response time.
+10. Future Scope
+•    Additional modules on the same architecture: Maintenance, Complaints, Inventory, Attendance, Meeting Scheduling, Asset Tracking.
+•    OCR-based auto-fill from government IDs and optional consent-based face verification.
+•    QR-code check-in/check-out, offline-first operation, and IoT integration for smart gates.
+•    Integration with existing ERP and calendar systems for appointment validation.
+11. Conclusion
+checkIn.ai reframes the project from a single-purpose visitor-management tool into a configurable AI workflow-automation platform, where AI reasoning, business rules, and organization-specific configuration are cleanly separated. This gives the project a defensible architectural identity and a realistic path from a one-module semester deliverable to a genuinely reusable system.
+
