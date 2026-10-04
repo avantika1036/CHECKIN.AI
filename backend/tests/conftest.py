@@ -2,9 +2,9 @@
 because our safety claims (transactions, locks, triggers, pg_trgm) only mean something there."""
 import os
 
-os.environ["DATABASE_URL"] = os.environ.get(
-    "TEST_DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/checkin_test"
-)
+from app.devtools import test_database_url
+
+os.environ["DATABASE_URL"] = test_database_url()      # always a database whose name ends in _test
 os.environ["LLM_PROVIDER"] = "none"
 os.environ["JWT_SECRET"] = "test-secret-test-secret-test-secret-0123456789"
 

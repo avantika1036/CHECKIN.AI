@@ -8,7 +8,8 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
 import jwt
-from fastapi import Depends, FastAPI, Header, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.middleware.cors import CORSMiddleware
 from langgraph.checkpoint.postgres import PostgresSaver
 from pydantic import BaseModel, Field
@@ -16,13 +17,16 @@ from pydantic import BaseModel, Field
 from . import audit, commit
 from .db import make_pool, migrate
 from .graph import build_graph, resume_run, run_state, start_run
-from .llm.gemini import GeminiProvider
+from .seed import seed
 from .security import create_token, decode_token, hash_password, verify_password
 from .settings import get_settings
 from .verify import load_config
 
 _DUMMY_HASH = hash_password("not-a-real-password")      # so unknown usernames cost the same time as wrong passwords
 _UNSET = object()
+# Declares "Bearer token" security to FastAPI: Swagger (/docs) then shows an Authorize button, and sends the
+# header on every call for you. (Before, the token was a plain header field you had to fill in per request.)
+bearer = HTTPBearer(auto_error=False, description="Paste the token from /api/auth/login (without the word Bearer).")
 
 
 class LoginIn(BaseModel):
@@ -49,27 +53,27 @@ class DecisionIn(BaseModel):
 
 
 def default_provider():
-    s = get_settings()
-    if s.llm_provider == "gemini" and s.gemini_api_key:
-        return GeminiProvider(s.gemini_api_key, s.gemini_model, s.llm_timeout_seconds)
-    return None                                          # no key -> every sentence falls back to the plain form
+    from .llm.factory import build_provider
+    return build_provider(get_settings())            # None when no key is configured -> plain-form mode
 
 
 def create_app(provider=_UNSET, clock=None) -> FastAPI:
     settings = get_settings()
-    ai_configured = (default_provider() is not None) if provider is _UNSET else provider is not None
+    llm = default_provider() if provider is _UNSET else provider
+    ai_configured = llm is not None
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         pool, cp_pool = make_pool(), make_pool(autocommit=True)
         pool.open(); cp_pool.open()
         migrate(pool)
+        if settings.auto_seed:
+            seed(pool)                           # safe to repeat: only adds what is missing
         saver = PostgresSaver(cp_pool)
         saver.setup()
         app.state.pool = pool
         kwargs = {"clock": clock} if clock else {}
-        app.state.graph = build_graph(pool, saver, default_provider() if provider is _UNSET else provider,
-                                      settings, **kwargs)
+        app.state.graph = build_graph(pool, saver, llm, settings, **kwargs)
         yield
         pool.close(); cp_pool.close()
 
@@ -78,11 +82,11 @@ def create_app(provider=_UNSET, clock=None) -> FastAPI:
                        allow_methods=["*"], allow_headers=["*"])
 
     # ------------------------------------------------------------- auth helpers
-    def current_user(authorization: str = Header(default="")) -> dict:
-        if not authorization.startswith("Bearer "):
+    def current_user(creds: HTTPAuthorizationCredentials | None = Depends(bearer)) -> dict:
+        if creds is None:
             raise HTTPException(401, "missing token")
         try:
-            claims = decode_token(authorization[7:])
+            claims = decode_token(creds.credentials)
         except jwt.InvalidTokenError:
             raise HTTPException(401, "invalid or expired token")
         return {"username": claims["sub"], "tenant": claims["tenant"], "role": claims["role"]}
@@ -106,7 +110,7 @@ def create_app(provider=_UNSET, clock=None) -> FastAPI:
     def health():
         with app.state.pool.connection() as c:
             c.execute("SELECT 1")
-        return {"ok": True, "ai_configured": ai_configured}
+        return {"ok": True, "ai_configured": ai_configured, "ai_model": getattr(llm, "name", None)}
 
     @app.post("/api/auth/login")
     def login(body: LoginIn):

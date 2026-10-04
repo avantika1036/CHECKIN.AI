@@ -114,3 +114,56 @@ def test_input_validation(client):
     h = login(client, "guard_uiet")
     assert client.post("/api/runs", json={}, headers=h).status_code == 422
     assert client.post("/api/runs", json={"text": "x" * 601}, headers=h).status_code == 422
+
+
+def test_swagger_shows_an_authorize_button(client):
+    """/docs only offers the 'Authorize' lock if the API declares a bearer-token security scheme."""
+    spec = client.get("/openapi.json").json()
+    schemes = spec["components"]["securitySchemes"]
+    assert any(v.get("type") == "http" and v.get("scheme") == "bearer" for v in schemes.values())
+    assert spec["paths"]["/api/runs"]["post"]["security"]               # protected endpoint is marked
+    assert "security" not in spec["paths"]["/api/health"]["get"]        # public one is not
+    # and the token is NOT a per-request text field any more
+    names = [p["name"] for p in spec["paths"]["/api/visits"]["get"].get("parameters", [])]
+    assert "authorization" not in names
+
+
+def test_auto_seed_creates_demo_users_on_startup(clean, monkeypatch):
+    monkeypatch.setenv("AUTO_SEED", "true")
+    get_settings.cache_clear()
+    try:
+        with TestClient(create_app(provider=None)) as c:
+            assert c.post("/api/auth/login", json={"username": "admin_greenview", "password": PW}).status_code == 200
+    finally:
+        monkeypatch.delenv("AUTO_SEED")
+        get_settings.cache_clear()
+
+
+def test_failover_works_end_to_end_over_http(seeded):
+    """Primary model answers 503; the backup answers; the guard still gets a normal review card."""
+    import json as _json
+
+    import httpx
+
+    from app.llm.chain import ChainProvider
+    from app.llm.openai_compat import groq_provider
+
+    def down(request):
+        return httpx.Response(503, json={"error": {"message": "overloaded"}})
+
+    def up(request):
+        return httpx.Response(200, json={"choices": [{"message": {"content": _json.dumps(GOOD)}}],
+                                         "usage": {"total_tokens": 700}})
+
+    primary = groq_provider("k", "model-a", transport=httpx.MockTransport(down))
+    backup = groq_provider("k", "model-b", transport=httpx.MockTransport(up))
+    chain = ChainProvider([primary, backup], cooldown_seconds=30)
+    app = create_app(provider=chain, clock=lambda: datetime(2026, 10, 5, 11, 0, tzinfo=IST))
+    with TestClient(app) as c:
+        assert c.get("/api/health").json()["ai_configured"] is True
+        h = login(c, "guard_uiet")
+        r = c.post("/api/runs", json={"text": SENT}, headers=h).json()
+        assert r["status"] == "awaiting" and r["card"]["outcome"] == "pass"
+        assert [t for t in r["trace"] if t["step"] == "understand"][0]["model"] == "groq:model-b"   # the backup answered
+        again = c.post("/api/runs", json={"text": SENT}, headers=h).json()                           # primary is skipped now
+        assert again["status"] == "awaiting" and chain.total_tokens == 1400

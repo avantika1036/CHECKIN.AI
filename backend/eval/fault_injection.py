@@ -57,8 +57,10 @@ CORRUPTIONS = {"none (control)": lambda o, c: None, "invent_phone": c_invent_pho
                "wrong_name (grounded)": c_wrong_name, "swap_name_host (grounded)": c_swap_name_host}
 
 
-def is_bad(row: dict, gold: dict) -> bool:
-    return not (norm_text(row["name"]) == norm_text(gold["name"]) and row["phone"] == gold["phone"]
+def is_bad(row: dict, gold: dict, spoken_name: str | None = None) -> bool:
+    """Wrong data saved? The name counts as right if it is the Latin name OR the guard's own words as spoken."""
+    name_ok = norm_text(row["name"]) in {norm_text(gold["name"]), norm_text(spoken_name or "")}
+    return not (name_ok and row["phone"] == gold["phone"]
                 and row["host"] == gold["host_name"] and norm_text(row["purpose"]) == norm_text(gold["purpose"]))
 
 
@@ -112,20 +114,21 @@ def run(pool, cases) -> dict:
         for cname, corrupt in CORRUPTIONS.items():
             for case in registrations:
                 output = copy.deepcopy(case["oracle"])
+                spoken = case["oracle"]["name"]["evidence"]
                 corrupt(output, case)
                 s = stats[cname]
                 s["n"] += 1
                 reset_activity(pool)
                 naive_pipeline(pool, output)
                 rows = fetch_visits(pool)
-                s["naive_bad"] += any(is_bad(r, case["gold"]) for r in rows)
+                s["naive_bad"] += any(is_bad(r, case["gold"], spoken) for r in rows)
                 for mode in ("rubber", "attentive"):
                     reset_activity(pool)
                     graph = build_graph(pool, saver, FakeProvider(lambda _u, o=output: o), get_settings(),
                                         clock=lambda: NOW)
                     our_pipeline(graph, case, output, mode == "attentive", f"{cname}-{case['id']}-{mode}")
                     rows = fetch_visits(pool)
-                    bad = any(is_bad(r, case["gold"]) for r in rows)
+                    bad = any(is_bad(r, case["gold"], spoken) for r in rows)
                     s[f"{mode}_bad"] += bad
                     s[f"{mode}_saved_correct"] += bool(rows) and not bad
                     s[f"{mode}_stopped"] += not rows
@@ -144,6 +147,8 @@ def format_table(stats: dict) -> str:
 
 
 if __name__ == "__main__":
+    from app.devtools import mask, use_test_database
+    print("using database:", mask(use_test_database()))
     pool = make_pool(); pool.open(); migrate(pool); seed(pool)
     cases = [c for c in load("all") if c["gold"]["intent"] == "register_visitor"]
     # one representative per (style) mix keeps the run short; use all of them with --all

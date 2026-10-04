@@ -45,9 +45,10 @@ def test_oracle_scores_100_percent(seeded):
 def test_phone_typos_by_the_model_are_repaired_by_code(seeded):
     """A model that mis-copies a digit 40% of the time: pattern matcher keeps phone accuracy at 100%."""
     cases = load("all")
-    summary, _ = accuracy.run(accuracy.oracle_provider(cases, noise=0.4), cases, seeded)
-    assert summary["phone_accuracy"] == 1.0
-    assert summary["avg_fields_flagged_for_review"] > 0.37          # ...and the disagreements were flagged
+    clean, _ = accuracy.run(accuracy.oracle_provider(cases), cases, seeded)
+    noisy, _ = accuracy.run(accuracy.oracle_provider(cases, noise=0.4), cases, seeded)
+    assert noisy["phone_accuracy"] == 1.0
+    assert noisy["avg_fields_flagged_for_review"] > clean["avg_fields_flagged_for_review"]   # disagreements flagged
 
 
 def test_fault_injection_headline_results(seeded):
@@ -65,7 +66,8 @@ def test_fault_injection_headline_results(seeded):
         assert stats[k]["naive_bad"] == stats[k]["n"], k           # a naive system saves wrong data every time
     assert stats["none (control)"]["rubber_bad"] == 0
     assert stats["none (control)"]["rubber_saved_correct"] == stats["none (control)"]["n"]   # no false rejections
-    assert stats["wrong_name (grounded)"]["attentive_bad"] == 0
-    # KNOWN LIMITATION, asserted so it can never be forgotten: a wrong name in Hindi/Punjabi cannot be proven
-    # wrong by code, so a guard who approves blindly lets it through.
-    assert stats["wrong_name (grounded)"]["rubber_bad"] > 0
+    # A wrong name is now caught even for a blind guard, in English AND Hindi/Punjabi (checked by sound).
+    assert stats["wrong_name (grounded)"]["rubber_bad"] == 0
+    assert stats["wrong_name (grounded)"]["naive_bad"] == stats["wrong_name (grounded)"]["n"]
+    # KNOWN LIMIT, asserted so it can never be forgotten: a mistake that SOUNDS identical (differs only in
+    # vowels, e.g. Rahul/Rohul) cannot be caught by code; only the guard's glance at the card can.

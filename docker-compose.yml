@@ -1,3 +1,7 @@
+# One command starts everything:   docker compose up --build
+# db        PostgreSQL (the storage)
+# backend   the FastAPI server, http://localhost:8000  (API docs at /docs). Loads demo data on startup.
+# frontend  the React screen,   http://localhost:5173  (the one you open in the browser)
 services:
   db:
     image: postgres:16
@@ -17,7 +21,9 @@ services:
     env_file: [.env]
     environment:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/checkin
-      LLM_PROVIDER: gemini
+      AUTO_SEED: "true"
+    volumes: ["./backend/app:/srv/app"]          # edit code on your laptop; the server reloads itself
+    command: uvicorn app.main:app_factory --factory --host 0.0.0.0 --port 8000 --reload
     ports: ["8000:8000"]
     depends_on:
       db: { condition: service_healthy }

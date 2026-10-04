@@ -6,10 +6,11 @@ when it is not sure (several matches, or none).
 """
 from dataclasses import dataclass, field
 
+from .indic import NAME_TOKEN, SEARCH_TOKEN, skeleton_tokens, tokens_match_score
 from .textnorm import norm_text, strip_titles
 
-CANDIDATE_MIN = 0.40     # below this a host is not even offered as an option
-RESOLVE_MIN = 0.55       # the best match must score at least this to be chosen automatically
+CANDIDATE_MIN = 0.40     # below this a host is not even offered in the "pick one" list
+RESOLVE_MIN = 0.90       # to be chosen AUTOMATICALLY every word must match closely (strict sound match)
 RESOLVE_GAP = 0.15       # ...and beat the runner-up by at least this much
 
 
@@ -21,32 +22,49 @@ class HostResolution:
 
 
 _HOST_SQL = """
-SELECT id::text AS id, name, department, email,
+SELECT id::text AS id, name, department, email, aliases,
        GREATEST(
          word_similarity(%(q)s, norm(name)), word_similarity(norm(name), %(q)s),
          COALESCE((SELECT max(GREATEST(word_similarity(%(q)s, norm(a)), word_similarity(norm(a), %(q)s)))
                    FROM unnest(aliases) a), 0)
-       )::float AS score
+       )::float AS trigram
 FROM hosts
 WHERE tenant_id = %(t)s AND active
-ORDER BY score DESC, name
-LIMIT 5
 """
 
 
 def resolve_host(conn, tenant_id: str, spoken: str | None) -> HostResolution:
+    """Find the real person for the words the guard used.
+
+    Two independent scores, the better one counts:
+      * trigram similarity of the spelling (good for English typos), computed by PostgreSQL;
+      * sound similarity (indic.py): 'Agrawal', 'अग्रवाल' and 'ਅਗਰਵਾਲ' all match 'Aggarwal'.
+    Aliases ('aggarwal sir', 'flat A-101', or the name in Hindi/Punjabi) are compared too.
+    """
     q = strip_titles(spoken) or norm_text(spoken)
     if not q:
         return HostResolution("missing")
-    rows = [r for r in conn.execute(_HOST_SQL, {"q": q, "t": tenant_id}).fetchall()
-            if r["score"] >= CANDIDATE_MIN]
+    wanted = skeleton_tokens(spoken)
+    scored = []
+    for r in conn.execute(_HOST_SQL, {"q": q, "t": tenant_id}).fetchall():
+        labels = [skeleton_tokens(x) for x in [r["name"], *r["aliases"]]]
+        strict = max((tokens_match_score(wanted, t, NAME_TOKEN) for t in labels), default=0.0)
+        lenient = max((tokens_match_score(wanted, t, SEARCH_TOKEN) for t in labels), default=0.0)
+        scored.append({"id": r["id"], "name": r["name"], "department": r["department"], "email": r["email"],
+                       "score": max(r["trigram"], lenient, strict), "certain": strict})
+    # Why two scores: "Gurpreet Singh" is SIMILAR to staff member "Harpreet Singh" - good enough to OFFER in a
+    # list, never good enough to pick silently (that would notify the wrong person).
+    rows = sorted((r for r in scored if r["score"] >= CANDIDATE_MIN), key=lambda r: (-r["score"], r["name"]))[:5]
     if not rows:
         return HostResolution("not_found")
-    top = rows[0]
-    runner_up = rows[1]["score"] if len(rows) > 1 else 0.0
-    if top["score"] >= RESOLVE_MIN and top["score"] - runner_up >= RESOLVE_GAP:
-        return HostResolution("resolved", rows, top)
-    return HostResolution("ambiguous", rows)
+    by_certainty = sorted(rows, key=lambda r: -r["certain"])
+    top = by_certainty[0]
+    runner_up = by_certainty[1]["certain"] if len(by_certainty) > 1 else 0.0
+    public = [{k: v for k, v in r.items() if k != "certain"} for r in rows]
+    if top["certain"] >= RESOLVE_MIN and top["certain"] - runner_up >= RESOLVE_GAP:
+        chosen = next(r for r in public if r["id"] == top["id"])
+        return HostResolution("resolved", public, chosen)
+    return HostResolution("ambiguous", public)
 
 
 def get_host(conn, tenant_id: str, host_id: str) -> dict | None:

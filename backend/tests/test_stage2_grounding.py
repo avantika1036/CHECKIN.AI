@@ -61,12 +61,36 @@ def test_hindi_digits_work():
     assert c.fields["phone"] == "+919876543210" and c.checks["phone"]["status"] == "ok"
 
 
-def test_transliterated_name_is_kept_but_flagged():
-    """Grounding cannot prove a Latin spelling of a Devanagari name, so it admits that."""
+def test_hindi_name_with_correct_english_spelling_is_verified_by_sound():
     text = "राहुल शर्मा, ९८७६५४३२१०, प्रोफेसर वर्मा से मिलने"
-    g = dict(name=("Rahul Sharma", "राहुल शर्मा"))
-    c = check(U(**g), text)
-    assert c.fields["name"] == "Rahul Sharma" and c.checks["name"]["status"] == "unverified"
+    c = check(U(name=("Rahul Sharma", "राहुल शर्मा")), text)
+    assert c.fields["name"] == "Rahul Sharma" and c.checks["name"]["status"] == "ok"
+
+
+def test_punjabi_name_with_correct_english_spelling_is_verified_by_sound():
+    text = "ਗੁਰਪ੍ਰੀਤ ਸਿੰਘ ਹਰਪ੍ਰੀਤ ਸਿੰਘ ਨੂੰ ਮਿਲਣ ਆਇਆ ਹੈ"
+    c = check(U(name=("Gurpreet Singh", "ਗੁਰਪ੍ਰੀਤ ਸਿੰਘ"), host=("Harpreet Singh", "ਹਰਪ੍ਰੀਤ ਸਿੰਘ")), text)
+    assert c.fields["name"] == "Gurpreet Singh" and c.checks["name"]["status"] == "ok"
+    assert c.fields["host"] == "Harpreet Singh" and c.checks["host"]["status"] == "ok"
+
+
+def test_wrong_english_spelling_of_a_hindi_name_is_replaced_by_the_guards_own_words():
+    """The model wrote a DIFFERENT name. Code cannot read Hindi, but it can hear that they differ."""
+    text = "राहुल शर्मा, ९८७६५४३२१०, प्रोफेसर वर्मा से मिलने"
+    c = check(U(name=("Rohit Kumar", "राहुल शर्मा")), text)
+    assert c.fields["name"] == "राहुल शर्मा" and c.checks["name"]["status"] == "unverified"
+
+
+def test_similar_but_different_first_name_is_caught():
+    text = "ਗੁਰਪ੍ਰੀਤ ਸਿੰਘ ਮਿਲਣ ਆਇਆ ਹੈ"
+    c = check(U(name=("Harpreet Singh", "ਗੁਰਪ੍ਰੀਤ ਸਿੰਘ")), text)               # Gurpreet vs Harpreet
+    assert c.fields["name"] == "ਗੁਰਪ੍ਰੀਤ ਸਿੰਘ" and c.checks["name"]["status"] == "unverified"
+
+
+def test_wrong_hindi_host_spelling_falls_back_to_the_spoken_words():
+    text = "राहुल शर्मा, ९८७६५४३२१०, प्रोफेसर वर्मा से मिलने"
+    c = check(U(host=("Dr Mahesh Bansal", "प्रोफेसर वर्मा")), text)
+    assert c.fields["host"] == "प्रोफेसर वर्मा" and c.checks["host"]["status"] == "unverified"
 
 
 def test_name_that_contradicts_its_evidence_is_replaced_by_the_evidence():

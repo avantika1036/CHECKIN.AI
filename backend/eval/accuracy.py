@@ -54,7 +54,8 @@ def score_case(provider, conn, case) -> dict:
     row["intent_ok"] = u.intent.value == gold["intent"]
     row["flagged"], row["dropped"] = len(c.flagged), sum(v["status"] == "ungrounded" for v in c.checks.values())
     if gold["intent"] != "unknown" and "name" in gold:
-        row["name_ok"] = norm_text(c.fields["name"]) == norm_text(gold["name"])
+        spoken = (case["oracle"].get("name") or {}).get("evidence") or ""
+        row["name_ok"] = norm_text(c.fields["name"]) in {norm_text(gold["name"]), norm_text(spoken)}
     if gold["intent"] == "register_visitor":
         res = resolve_host(conn, TENANT, c.fields["host"])
         row["phone_ok"] = c.fields["phone"] == gold["phone"]
@@ -87,37 +88,54 @@ def by_style(rows):
             else summarise(g)["intent_accuracy"] for s, g in sorted(groups.items())}
 
 
-def run(provider, cases, pool) -> tuple[dict, list[dict]]:
+def run(provider, cases, pool, pause: float = 0.0) -> tuple[dict, list[dict]]:
+    """`pause` waits between sentences (to respect free-tier limits) and is NOT counted in the timings."""
+    tokens_before = getattr(provider, "total_tokens", 0)
+    rows = []
     with pool.connection() as conn:
-        rows = [score_case(provider, conn, c) for c in cases]
-    return summarise(rows), rows
+        for i, c in enumerate(cases):
+            if i and pause:
+                time.sleep(pause)
+            rows.append(score_case(provider, conn, c))
+    summary = summarise(rows)
+    used = getattr(provider, "total_tokens", 0) - tokens_before
+    if used:
+        summary["tokens_per_sentence"] = round(used / len(cases))
+    return summary, rows
+
+
+def build_live_provider(kind: str, model: str | None):
+    from app.llm.gemini import GeminiProvider
+    from app.llm.openai_compat import groq_provider
+    from app.settings import get_settings
+    s = get_settings()
+    if kind == "groq":
+        return groq_provider(s.groq_api_key, model or s.groq_model, base_url=s.groq_base_url,
+                             timeout_seconds=s.llm_timeout_seconds, reasoning_effort=s.groq_reasoning_effort)
+    return GeminiProvider(s.gemini_api_key, model or s.gemini_model, s.llm_timeout_seconds)
 
 
 if __name__ == "__main__":
+    from app.devtools import mask, use_test_database
+    print("using database:", mask(use_test_database()))
     ap = argparse.ArgumentParser()
-    ap.add_argument("--provider", choices=["oracle", "noisy", "gemini"], default="oracle")
+    ap.add_argument("--provider", choices=["oracle", "noisy", "groq", "gemini"], default="oracle")
+    ap.add_argument("--model", default=None, help="override the model name for groq/gemini")
     ap.add_argument("--split", choices=["dev", "test", "all"], default="dev")
+    ap.add_argument("--limit", type=int, default=0, help="only the first N sentences of each language (saves quota)")
     ap.add_argument("--sleep", type=float, default=0.0, help="seconds between calls (free-tier rate limits)")
     a = ap.parse_args()
     cases = load(a.split)
+    if a.limit:
+        seen: dict[str, int] = defaultdict(int)
+        cases = [c for c in cases if (seen.__setitem__(c["style"], seen[c["style"]] + 1) or seen[c["style"]] <= a.limit)]
     pool = make_pool(); pool.open(); migrate(pool); seed(pool)
-    if a.provider == "gemini":
-        from app.llm.gemini import GeminiProvider
-        from app.settings import get_settings
-        s = get_settings()
-        g = GeminiProvider(s.gemini_api_key, s.gemini_model, s.llm_timeout_seconds)
-
-        class Throttled:                                   # waits between calls to respect free-tier limits
-            name = g.name
-
-            def generate_json(self, system, user, schema):
-                time.sleep(a.sleep)
-                return g.generate_json(system, user, schema)
-        provider = Throttled()
-        print("model:", g.name)
+    if a.provider in ("groq", "gemini"):
+        provider = build_live_provider(a.provider, a.model)
+        print("model:", provider.name)
     else:
         provider = oracle_provider(cases, noise=0.15 if a.provider == "noisy" else 0.0)
-    summary, rows = run(provider, cases, pool)
+    summary, rows = run(provider, cases, pool, a.sleep)
     print(json.dumps(summary, indent=2))
     print("registration fully correct, by style:", by_style(rows))
     pool.close()

@@ -11,6 +11,7 @@ Status per field: ok | unverified | ungrounded (dropped) | missing
 """
 from dataclasses import dataclass
 
+from .indic import NAME_SOUNDS_OK, name_sound_similarity
 from .textnorm import find_phones, has_digits, norm_text, normalize_phone, script_of
 from .understanding import Evidenced, Understanding
 
@@ -31,18 +32,27 @@ def _evidence_in_text(ev: Evidenced, text: str) -> bool:
     return bool(ev.evidence) and bool(norm_text(ev.evidence)) and norm_text(ev.evidence) in norm_text(text)
 
 
-def _check_name(ev: Evidenced, text: str) -> tuple[str | None, str, str]:
+def _check_person(ev: Evidenced, text: str) -> tuple[str | None, str, str]:
+    """Names of visitors and hosts. Works for English, Hindi and Punjabi sentences.
+
+    * evidence must be in the sentence (else the value is dropped);
+    * English evidence: the value must agree with it, otherwise the sentence's own words win;
+    * Hindi/Punjabi evidence: the model's English spelling is accepted only if it SOUNDS like the spoken
+      name (consonant skeleton, see indic.py); otherwise we keep the guard's own words, exactly as typed.
+    """
     if not ev.value:
         return None, "missing", ""
     if not _evidence_in_text(ev, text):
-        return None, "ungrounded", "the name is not in your sentence"
-    v, e = norm_text(ev.value), norm_text(ev.evidence)
-    if script_of(ev.evidence) not in ("latin", "none"):
-        return ev.value.strip(), "unverified", "written in another script - check the spelling"
-    if v in e or e in v:
-        return ev.value.strip(), "ok", ""
-    # same script but different words: the model changed the name. The sentence's own words win.
-    return ev.evidence.strip(), "unverified", "model changed the spelling - using the words from your sentence"
+        return None, "ungrounded", "not found in your sentence"
+    evidence = ev.evidence.strip()
+    if script_of(evidence) in ("latin", "none"):
+        v, e = norm_text(ev.value), norm_text(evidence)
+        if v in e or e in v:
+            return ev.value.strip(), "ok", ""
+        return evidence, "unverified", "model changed the spelling - using the words from your sentence"
+    if name_sound_similarity(ev.value, evidence) >= NAME_SOUNDS_OK:
+        return ev.value.strip(), "ok", "spelling matches what was said (checked by sound)"
+    return evidence, "unverified", "could not match the English spelling by sound - showing your words as typed"
 
 
 def _check_phone(ev: Evidenced, text: str) -> tuple[str | None, str, str]:
@@ -79,7 +89,7 @@ def _check_free_text(ev: Evidenced, text: str) -> tuple[str | None, str, str]:
 
 
 def check(u: Understanding, text: str) -> Checked:
-    fn = {"name": _check_name, "phone": _check_phone, "host": _check_free_text, "purpose": _check_free_text}
+    fn = {"name": _check_person, "phone": _check_phone, "host": _check_person, "purpose": _check_free_text}
     fields, checks = {}, {}
     for f in FIELDS:
         ev: Evidenced = getattr(u, f)

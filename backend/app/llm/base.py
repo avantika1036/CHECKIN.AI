@@ -12,7 +12,11 @@ class LLMError(Exception):
 
 
 class LLMUnavailable(LLMError):
-    """Network down, timeout, rate limit, server error: worth retrying."""
+    """Network down, timeout, rate limit, server error: worth retrying (or trying another provider)."""
+
+    def __init__(self, message: str, retry_after: float | None = None):
+        super().__init__(message)
+        self.retry_after = retry_after          # seconds the provider asked us to wait, if it said
 
 
 class LLMProvider(Protocol):

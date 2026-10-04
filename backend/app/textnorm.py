@@ -12,7 +12,11 @@ _DIGIT_MAP = {0x0966 + i: ord("0") + i for i in range(10)}
 _DIGIT_MAP.update({0x0A66 + i: ord("0") + i for i in range(10)})
 
 _PHONE_CANDIDATE = re.compile(r"\+?\d[\d\s\-]{8,16}\d")
-_TITLES = {"dr", "prof", "professor", "mr", "mrs", "ms", "miss", "sir", "madam", "maam", "shri", "smt", "ji"}
+_TITLE_WORDS = [
+    "dr", "prof", "professor", "mr", "mrs", "ms", "miss", "sir", "madam", "maam", "mam", "shri", "sri", "smt", "ji",
+    "डॉ", "डा", "डॉक्टर", "प्रो", "प्रोफेसर", "श्री", "श्रीमती", "सर", "मैडम", "मैम", "जी",          # Hindi
+    "ਡਾ", "ਡਾਕਟਰ", "ਪ੍ਰੋ", "ਪ੍ਰੋਫੈਸਰ", "ਸ਼੍ਰੀ", "ਸ੍ਰੀ", "ਸ਼੍ਰੀਮਤੀ", "ਸ੍ਰੀਮਤੀ", "ਸਰ", "ਮੈਡਮ", "ਮੈਮ", "ਜੀ",  # Punjabi
+]
 
 
 def to_ascii_digits(text: str) -> str:
@@ -52,7 +56,10 @@ def norm_text(text: str | None) -> str:
     if not text:
         return ""
     t = unicodedata.normalize("NFKC", text).casefold()
-    t = re.sub(r"[^\w\s]", " ", t)
+    # Keep letters, digits and COMBINING MARKS (Hindi/Punjabi vowel signs are marks: a plain \w filter
+    # would cut 'राहुल' into pieces). Everything else (punctuation) becomes a space.
+    t = "".join(ch if (ch.isalnum() or ch.isspace() or unicodedata.category(ch).startswith("M")) else " "
+                for ch in t)
     return re.sub(r"\s+", " ", t).strip()
 
 
@@ -78,5 +85,5 @@ def script_of(text: str) -> str:
 
 def strip_titles(name: str | None) -> str:
     """'Dr. Aggarwal sir' -> 'aggarwal'. Titles are noise when matching people."""
-    words = [w for w in norm_text(name).split() if w not in _TITLES]
-    return " ".join(words)
+    titles = {norm_text(t) for t in _TITLE_WORDS}
+    return " ".join(w for w in norm_text(name).split() if w not in titles)
