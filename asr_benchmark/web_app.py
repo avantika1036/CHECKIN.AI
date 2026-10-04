@@ -96,7 +96,12 @@ class Handler(BaseHTTPRequestHandler):
                 audio_name = part.get_filename()
                 audio_data = part.get_payload(decode=True)
             elif name:
-                fields[name] = part.get_content()
+                raw_value = part.get_payload(decode=True)
+                if raw_value is None:
+                    fields[name] = part.get_content()
+                else:
+                    charset = part.get_content_charset() or "utf-8"
+                    fields[name] = raw_value.decode(charset, errors="replace")
         case_id = fields.get("case_id", "unlabelled").strip() or "unlabelled"
         submitted_reference = fields.get("reference", "").strip()
         submitted_language = fields.get("language", "en-IN").strip() or "en-IN"

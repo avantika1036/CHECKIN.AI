@@ -25,7 +25,9 @@ services:
   frontend:
     image: node:22
     working_dir: /app
-    volumes: ["./frontend:/app"]
+    volumes:
+      - "./frontend:/app"
+      - "/app/node_modules"
     environment:
       API_URL: http://backend:8000
     command: sh -c "npm install && npm run dev"
