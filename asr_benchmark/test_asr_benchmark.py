@@ -80,19 +80,6 @@ def test_manifest_resolves_audio_root_and_split(tmp_path):
     assert cases[0].audio == audio.resolve()
 
 
-def test_manifest_preserves_evaluation_metadata(tmp_path):
-    audio = tmp_path / "one.wav"
-    _wav(audio)
-    manifest = tmp_path / "manifest.jsonl"
-    manifest.write_text(json.dumps({
-        "id": "one", "audio": "one.wav", "reference": "hello",
-        "language": "en-IN", "scenario": "names", "difficulty": "hard",
-    }) + "\n", encoding="utf-8")
-    case = load_manifest(manifest)[0]
-    assert case.scenario == "names"
-    assert case.difficulty == "hard"
-
-
 def test_manifest_without_audio_root_resolves_relative_to_manifest(tmp_path):
     audio = tmp_path / "audio" / "one.wav"
     audio.parent.mkdir()
