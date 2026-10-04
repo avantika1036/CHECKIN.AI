@@ -6,13 +6,12 @@ The token carries the user's organisation (tenant) and role, so every query is s
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Literal
 
 import jwt
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from langgraph.checkpoint.postgres import PostgresSaver
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
 from . import audit, commit
 from .db import make_pool, migrate
@@ -35,15 +34,9 @@ class RunIn(BaseModel):
     text: str | None = Field(default=None, max_length=600)
     fields: dict | None = None                           # present => plain form (no AI)
 
-    @model_validator(mode="after")
-    def _has_input(self):
-        if not (self.text and self.text.strip()) and not self.fields:
-            raise ValueError("send either non-empty 'text' or non-empty 'fields'")
-        return self
-
 
 class AnswerIn(BaseModel):
-    action: Literal["confirm", "edit", "add_text", "cancel"]
+    action: str                                          # confirm | edit | add_text | cancel
     fields: dict | None = None
     host_id: str | None = None
     link_visitor_id: str | None = None

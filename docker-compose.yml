@@ -25,13 +25,11 @@ services:
   frontend:
     image: node:22
     working_dir: /app
-    volumes:
-      - "./frontend:/app"
-      - "/app/node_modules"
+    volumes: ["./frontend:/app"]
     environment:
       API_URL: http://backend:8000
     command: sh -c "npm install && npm run dev"
-    ports: ["5174:5173"]
+    ports: ["5173:5173"]
     depends_on: [backend]
 
 volumes:

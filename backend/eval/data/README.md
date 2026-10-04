@@ -5,3 +5,4 @@
 * `human_v1.jsonl` - YOUR job: 30-40 sentences written by people who did NOT write the prompts
   (ask friends), in the same JSON-lines format as the synthetic file, including messy ones:
   spelling mistakes, Hinglish, background-noise speech-to-text errors. Mark them `"split": "test"`.
+  A model that does well on synthetic sentences but badly here is the finding worth reporting.
