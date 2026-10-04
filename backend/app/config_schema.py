@@ -82,6 +82,13 @@ class TenantConfig(BaseModel):
     rules: list[Rule] = []
     autoclose_time: str | None = None          # 'HH:MM' local; open visits are closed after this
 
+    @field_validator("autoclose_time")
+    @classmethod
+    def _autoclose_time(cls, v: str | None) -> str | None:
+        if v is not None and not _HHMM.match(v):
+            raise ValueError("autoclose_time must look like HH:MM")
+        return v
+
     @field_validator("timezone")
     @classmethod
     def _tz(cls, v: str) -> str:
