@@ -1,0 +1,4 @@
+# Optional dependencies for the standalone ASR benchmark.
+# Install only the providers you want to benchmark.
+openai-whisper
+matplotlib

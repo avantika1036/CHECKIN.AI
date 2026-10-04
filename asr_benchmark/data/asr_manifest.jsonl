@@ -1,0 +1,20 @@
+{"id": "en-clean-01", "audio": "audio\\en-clean-01.webm", "reference": "Rahul Sharma is here", "language": "en-IN", "split": "test", "scenario": "clean", "difficulty": "easy"}
+{"id": "en-clean-02", "audio": "audio\\en-clean-02.webm", "reference": "Please register Anita Singh", "language": "en-IN", "split": "test", "scenario": "clean", "difficulty": "easy"}
+{"id": "en-name-01", "audio": "audio\\en-name-01.webm", "reference": "Rahul Sharma is here to meet Dr. Naveen Aggarwal", "language": "en-IN", "split": "test", "scenario": "names", "difficulty": "medium"}
+{"id": "en-name-02", "audio": "audio\\en-name-02.webm", "reference": "Please register Dr. Harpreet Kaur from the CSE department", "language": "en-IN", "split": "test", "scenario": "names", "difficulty": "medium"}
+{"id": "en-phone-01", "audio": "audio\\en-phone-01.webm", "reference": "Rahul Sharma phone number is 98765 43210", "language": "en-IN", "split": "test", "scenario": "phone", "difficulty": "hard"}
+{"id": "en-purpose-01", "audio": "audio\\en-purpose-01.webm", "reference": "Rahul Sharma is here for a project discussion", "language": "en-IN", "split": "test", "scenario": "purpose", "difficulty": "medium"}
+{"id": "en-noise-01", "audio": "audio\\en-noise-01.webm", "reference": "Anita Singh is here to meet the department head", "language": "en-IN", "split": "test", "scenario": "noise", "difficulty": "hard"}
+{"id": "en-accent-01", "audio": "audio\\en-accent-01.webm", "reference": "Please check out Rahul Sharma from the visitor gate", "language": "en-IN", "split": "test", "scenario": "accent", "difficulty": "hard"}
+{"id": "hi-clean-01", "audio": "audio\\hi-clean-01.webm", "reference": "राहुल शर्मा यहां हैं", "language": "hi-IN", "split": "test", "scenario": "clean", "difficulty": "easy"}
+{"id": "hi-name-01", "audio": "audio\\hi-name-01.webm", "reference": "राहुल शर्मा डॉ नवीन अग्रवाल से मिलने आए हैं", "language": "hi-IN", "split": "test", "scenario": "names", "difficulty": "medium"}
+{"id": "hi-phone-01", "audio": "audio\\hi-phone-01.webm", "reference": "राहुल शर्मा का फोन नंबर नौ आठ सात छह पांच चार तीन दो एक शून्य है", "language": "hi-IN", "split": "test", "scenario": "phone", "difficulty": "hard"}
+{"id": "hi-purpose-01", "audio": "audio\\hi-purpose-01.webm", "reference": "राहुल शर्मा परियोजना चर्चा के लिए आए हैं", "language": "hi-IN", "split": "test", "scenario": "purpose", "difficulty": "medium"}
+{"id": "hi-noise-01", "audio": "audio\\hi-noise-01.webm", "reference": "कृपया अनिता सिंह का आगंतुक पंजीकरण करें", "language": "hi-IN", "split": "test", "scenario": "noise", "difficulty": "hard"}
+{"id": "hi-mixed-01", "audio": "audio\\hi-mixed-01.webm", "reference": "राहुल शर्मा project discussion के लिए आए हैं", "language": "hi-IN", "split": "test", "scenario": "mixed", "difficulty": "hard"}
+{"id": "pa-clean-01", "audio": "audio\\pa-clean-01.webm", "reference": "ਰਾਹੁਲ ਸ਼ਰਮਾ ਇੱਥੇ ਹਨ", "language": "pa-IN", "split": "test", "scenario": "clean", "difficulty": "easy"}
+{"id": "pa-name-01", "audio": "audio\\pa-name-01.webm", "reference": "ਰਾਹੁਲ ਸ਼ਰਮਾ ਡਾਕਟਰ ਨਵੀਨ ਅਗਰਵਾਲ ਨੂੰ ਮਿਲਣ ਆਏ ਹਨ", "language": "pa-IN", "split": "test", "scenario": "names", "difficulty": "medium"}
+{"id": "pa-phone-01", "audio": "audio\\pa-phone-01.webm", "reference": "ਰਾਹੁਲ ਸ਼ਰਮਾ ਦਾ ਫੋਨ ਨੰਬਰ ਨੌਂ ਅੱਠ ਸੱਤ ਛੇ ਪੰਜ ਚਾਰ ਤਿੰਨ ਦੋ ਇੱਕ ਸਿਫ਼ਰ ਹੈ", "language": "pa-IN", "split": "test", "scenario": "phone", "difficulty": "hard"}
+{"id": "pa-purpose-01", "audio": "audio\\pa-purpose-01.webm", "reference": "ਰਾਹੁਲ ਸ਼ਰਮਾ ਪ੍ਰੋਜੈਕਟ ਚਰਚਾ ਲਈ ਆਏ ਹਨ", "language": "pa-IN", "split": "test", "scenario": "purpose", "difficulty": "medium"}
+{"id": "pa-noise-01", "audio": "audio\\pa-noise-01.webm", "reference": "ਕਿਰਪਾ ਕਰਕੇ ਅਨੀਤਾ ਸਿੰਘ ਦੀ ਵਿਜ਼ਟਰ ਰਜਿਸਟ੍ਰੇਸ਼ਨ ਕਰੋ", "language": "pa-IN", "split": "test", "scenario": "noise", "difficulty": "hard"}
+{"id": "pa-mixed-01", "audio": "audio\\pa-mixed-01.webm", "reference": "ਰਾਹੁਲ ਸ਼ਰਮਾ project discussion ਲਈ ਆਏ ਹਨ", "language": "pa-IN", "split": "test", "scenario": "mixed", "difficulty": "hard"}

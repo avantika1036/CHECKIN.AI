@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ASR benchmark recorder</title>
+  <style>
+    :root { color-scheme: light; font-family: system-ui, sans-serif; }
+    body { max-width: 760px; margin: 40px auto; padding: 0 20px; color: #172033; background: #f5f7fb; }
+    main { background: white; padding: 28px; border-radius: 16px; box-shadow: 0 8px 30px #17203318; }
+    h1 { margin-top: 0; } label { display: block; margin: 18px 0 6px; font-weight: 650; }
+    input, textarea, select, button { font: inherit; width: 100%; box-sizing: border-box; padding: 11px; border: 1px solid #bbc5d6; border-radius: 8px; }
+    textarea { min-height: 82px; resize: vertical; } .actions { display: flex; gap: 10px; margin-top: 18px; }
+    button { cursor: pointer; background: #174ea6; color: white; border: 0; font-weight: 650; }
+    button.secondary { background: #687386; } button:disabled { opacity: .55; cursor: wait; }
+    #status { margin-top: 18px; min-height: 24px; } .error { color: #b42318; }
+    .result { margin-top: 22px; padding: 18px; background: #eef5ff; border-radius: 10px; }
+    .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
+    .metric { background: white; padding: 12px; border-radius: 8px; } .metric strong { display: block; font-size: 1.25rem; }
+    .providers { display: flex; gap: 16px; flex-wrap: wrap; } .providers label { margin: 0; font-weight: 500; }
+    .providers input { width: auto; } table { width: 100%; border-collapse: collapse; margin-top: 12px; background: white; }
+    th, td { text-align: left; padding: 9px; border-bottom: 1px solid #d9e0eb; vertical-align: top; }
+    .case-controls { display: flex; gap: 10px; margin-top: 20px; }
+    .case-controls select { width: auto; flex: 1; }
+    .case-list { display: none !important; gap: 8px; margin-top: 10px; }
+    .case { display: grid; grid-template-columns: 105px 1fr auto; gap: 10px; align-items: center; padding: 10px; border: 1px solid #d9e0eb; border-radius: 8px; }
+    .case small { display: block; } .case button { width: auto; padding: 8px 12px; }
+    .speak-prompt { display: none; margin: 18px 0; padding: 20px; border: 2px solid #3155a6; border-radius: 12px; background: #eef5ff; }
+    .speak-prompt.active { display: block; } .speak-prompt .sentence { margin-top: 8px; font-size: 1.35rem; line-height: 1.55; font-weight: 700; }
+    @media (max-width: 650px) { .case { grid-template-columns: 1fr; } }
+    audio { width: 100%; margin-top: 12px; } small { color: #5d6879; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Speech-to-text benchmark</h1>
+  <p>Record one sentence and compare Browser Web Speech, Sarvam, and Whisper using the same audio.</p>
+  <label for="language">Language</label>
+  <select id="language">
+    <option value="en-IN">English (India)</option>
+    <option value="hi-IN">Hindi</option>
+    <option value="pa-IN">Punjabi</option>
+  </select>
+  <label>Providers</label>
+  <div class="providers">
+    <label><input type="checkbox" name="provider" value="browser" checked> Browser Web Speech</label>
+    <label><input type="checkbox" name="provider" value="sarvam" checked> Sarvam AI</label>
+    <label><input type="checkbox" name="provider" value="whisper:tiny" checked> Whisper tiny</label>
+    <label><input type="checkbox" name="provider" value="whisper:base"> Whisper base</label>
+    <label><input type="checkbox" name="provider" value="whisper:small"> Whisper small</label>
+    <label><input type="checkbox" name="provider" value="whisper:medium"> Whisper medium</label>
+    <label><input type="checkbox" name="provider" value="whisper:large"> Whisper large</label>
+  </div>
+  <label for="reference">Reference transcript</label>
+  <textarea id="reference" placeholder="Example: Rahul Sharma is here to meet Dr. Naveen Aggarwal"></textarea>
+  <small>Type the exact words spoken. This is used to calculate WER and CER.</small>
+  <h2>Test cases</h2>
+  <p>Select a language, then speak the sentence shown below. Use <b>Next case</b> after each completed test.</p>
+  <div class="case-controls">
+    <select id="case-language" aria-label="Filter test cases by language">
+      <option value="all">All languages</option>
+      <option value="en-IN">English</option>
+      <option value="hi-IN">Hindi</option>
+      <option value="pa-IN">Punjabi</option>
+    </select>
+    <select id="case-scenario" aria-label="Filter test cases by scenario">
+      <option value="all">All scenarios</option>
+      <option value="clean">Clean speech</option>
+      <option value="names">Names</option>
+      <option value="phone">Phone numbers</option>
+      <option value="purpose">Visit purpose</option>
+      <option value="noise">Background noise</option>
+      <option value="accent">Accent</option>
+      <option value="mixed">Mixed language</option>
+    </select>
+  </div>
+  <div id="case-list" class="case-list"></div>
+  <section id="speak-prompt" class="speak-prompt" aria-live="polite">
+    <b>Speak this sentence</b>
+    <small id="prompt-case"></small>
+    <div class="sentence" id="prompt-text"></div>
+  </section>
+  <div class="actions">
+    <button id="record">Start recording</button>
+    <button id="send" class="secondary" disabled>Benchmark recording</button>
+    <button id="next-case" class="secondary" disabled>Next case</button>
+    <button id="finalize" class="secondary">Generate final report</button>
+  </div>
+  <audio id="preview" controls hidden></audio>
+  <div id="status"></div>
+  <section id="result" class="result" hidden></section>
+</main>
+<script>
+  let recorder, chunks = [], recording, speechRecognition, browserTranscript = "", browserStartedAt = 0, browserLatency = 0;
+  const BrowserSpeech = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const record = document.querySelector("#record");
+  const send = document.querySelector("#send");
+  const preview = document.querySelector("#preview");
+  const status = document.querySelector("#status");
+  const result = document.querySelector("#result");
+  const speakPrompt = document.querySelector("#speak-prompt");
+  const promptCase = document.querySelector("#prompt-case");
+  const promptText = document.querySelector("#prompt-text");
+  const nextCase = document.querySelector("#next-case");
+  const finalize = document.querySelector("#finalize");
+  let currentCaseId = "";
+  const cases = [
+    ["en-clean-01","en-IN","clean","Easy","Rahul Sharma is here"],
+    ["en-clean-02","en-IN","clean","Easy","Please register Anita Singh"],
+    ["en-name-01","en-IN","names","Medium","Rahul Sharma is here to meet Dr. Naveen Aggarwal"],
+    ["en-name-02","en-IN","names","Medium","Please register Dr. Harpreet Kaur from the CSE department"],
+    ["en-phone-01","en-IN","phone","Hard","Rahul Sharma phone number is 98765 43210"],
+    ["en-purpose-01","en-IN","purpose","Medium","Rahul Sharma is here for a project discussion"],
+    ["en-noise-01","en-IN","noise","Hard","Anita Singh is here to meet the department head"],
+    ["en-accent-01","en-IN","accent","Hard","Please check out Rahul Sharma from the visitor gate"],
+    ["hi-clean-01","hi-IN","clean","Easy","राहुल शर्मा यहां हैं"],
+    ["hi-name-01","hi-IN","names","Medium","राहुल शर्मा डॉ नवीन अग्रवाल से मिलने आए हैं"],
+    ["hi-phone-01","hi-IN","phone","Hard","राहुल शर्मा का फोन नंबर नौ आठ सात छह पांच चार तीन दो एक शून्य है"],
+    ["hi-purpose-01","hi-IN","purpose","Medium","राहुल शर्मा परियोजना चर्चा के लिए आए हैं"],
+    ["hi-noise-01","hi-IN","noise","Hard","कृपया अनिता सिंह का आगंतुक पंजीकरण करें"],
+    ["hi-mixed-01","hi-IN","mixed","Hard","राहुल शर्मा project discussion के लिए आए हैं"],
+    ["pa-clean-01","pa-IN","clean","Easy","ਰਾਹੁਲ ਸ਼ਰਮਾ ਇੱਥੇ ਹਨ"],
+    ["pa-name-01","pa-IN","names","Medium","ਰਾਹੁਲ ਸ਼ਰਮਾ ਡਾਕਟਰ ਨਵੀਨ ਅਗਰਵਾਲ ਨੂੰ ਮਿਲਣ ਆਏ ਹਨ"],
+    ["pa-phone-01","pa-IN","phone","Hard","ਰਾਹੁਲ ਸ਼ਰਮਾ ਦਾ ਫੋਨ ਨੰਬਰ ਨੌਂ ਅੱਠ ਸੱਤ ਛੇ ਪੰਜ ਚਾਰ ਤਿੰਨ ਦੋ ਇੱਕ ਸਿਫ਼ਰ ਹੈ"],
+    ["pa-purpose-01","pa-IN","purpose","Medium","ਰਾਹੁਲ ਸ਼ਰਮਾ ਪ੍ਰੋਜੈਕਟ ਚਰਚਾ ਲਈ ਆਏ ਹਨ"],
+    ["pa-noise-01","pa-IN","noise","Hard","ਕਿਰਪਾ ਕਰਕੇ ਅਨੀਤਾ ਸਿੰਘ ਦੀ ਵਿਜ਼ਟਰ ਰਜਿਸਟ੍ਰੇਸ਼ਨ ਕਰੋ"],
+    ["pa-mixed-01","pa-IN","mixed","Hard","ਰਾਹੁਲ ਸ਼ਰਮਾ project discussion ਲਈ ਆਏ ਹਨ"]
+  ];
+  const caseList = document.querySelector("#case-list");
+  const renderCases = () => {
+    const language = document.querySelector("#case-language").value;
+    const scenario = document.querySelector("#case-scenario").value;
+    caseList.innerHTML = cases
+      .filter(item => (language === "all" || item[1] === language) && (scenario === "all" || item[2] === scenario))
+      .map(item => `<div class="case"><div><b>${item[0]}</b><small>${item[1]} · ${item[3]}</small></div>
+        <span>${escapeHtml(item[4])}</span><button type="button" data-case="${item[0]}">Use case</button></div>`)
+      .join("");
+    caseList.querySelectorAll("button").forEach(button => {
+      button.onclick = () => {
+        const item = cases.find(candidate => candidate[0] === button.dataset.case);
+        document.querySelector("#case-language").value = item[1];
+        document.querySelector("#language").value = item[1];
+        document.querySelector("#reference").value = item[4];
+        currentCaseId = item[0];
+        promptCase.textContent = `${item[0]} · ${item[1]} · ${item[3]}`;
+        promptText.textContent = item[4];
+        speakPrompt.classList.add("active");
+        document.querySelector("#case-list").style.display = "none";
+        document.querySelector(".case-controls").style.display = "none";
+        document.querySelector("#reference").style.display = "none";
+        document.querySelector('label[for="reference"]').style.display = "none";
+        document.querySelector("#reference").nextElementSibling.style.display = "none";
+        document.querySelector("#reference").focus();
+        status.textContent = `${item[0]} selected. Speak the sentence exactly as shown.`;
+        status.className = "";
+      };
+    });
+  };
+  document.querySelector("#case-language").onchange = renderCases;
+  document.querySelector("#case-scenario").onchange = renderCases;
+  renderCases();
+  caseList.querySelector("button")?.click();
+  document.querySelector("#language").onchange = () => {
+    const first = cases.find(item => item[1] === document.querySelector("#language").value);
+    if (!first) return;
+    const button = caseList.querySelector(`[data-case="${first[0]}"]`);
+    button?.click();
+  };
+
+  record.onclick = async () => {
+    if (recording) {
+      recorder.stop();
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      chunks = [];
+      browserTranscript = "";
+      browserLatency = 0;
+      recorder = new MediaRecorder(stream);
+      recorder.ondataavailable = event => chunks.push(event.data);
+      recorder.onstop = () => {
+        if (speechRecognition) speechRecognition.stop();
+        stream.getTracks().forEach(track => track.stop());
+        preview.src = URL.createObjectURL(new Blob(chunks, { type: recorder.mimeType }));
+        preview.hidden = false; send.disabled = false; recording = false;
+        record.textContent = "Start recording"; status.textContent = "Recording ready.";
+      };
+      const browserSelected = document.querySelector('input[name="provider"][value="browser"]').checked;
+      if (browserSelected && BrowserSpeech) {
+        speechRecognition = new BrowserSpeech();
+        speechRecognition.lang = document.querySelector("#language").value === "pa-IN" ? "pa-Guru-IN" : document.querySelector("#language").value;
+        speechRecognition.continuous = false;
+        speechRecognition.interimResults = false;
+        browserStartedAt = performance.now();
+        speechRecognition.onresult = event => {
+          browserTranscript = [...event.results].map(result => result[0].transcript).join(" ").trim();
+          browserLatency = (performance.now() - browserStartedAt) / 1000;
+        };
+        speechRecognition.onerror = () => {};
+        speechRecognition.start();
+      }
+      recorder.start(); recording = true; record.textContent = "Stop recording";
+      status.textContent = "Recording...";
+    } catch (error) { status.textContent = error.message; status.className = "error"; }
+  };
+
+  send.onclick = async () => {
+    const reference = document.querySelector("#reference").value.trim();
+    if (!reference) { status.textContent = "Enter the reference transcript first."; status.className = "error"; return; }
+    const form = new FormData();
+    form.append("reference", reference);
+    form.append("case_id", currentCaseId || "manual-" + Date.now());
+    form.append("language", document.querySelector("#language").value);
+    form.append("providers", [...document.querySelectorAll('input[name="provider"]:checked')]
+      .map(input => input.value).join(","));
+    form.append("browser_transcript", browserTranscript);
+    form.append("browser_latency", browserLatency.toString());
+    form.append("audio", new Blob(chunks, { type: recorder.mimeType }), "recording.webm");
+    const selectedProviders = [...document.querySelectorAll('input[name="provider"]:checked')];
+    if (!selectedProviders.length) { status.textContent = "Select at least one provider."; status.className = "error"; return; }
+    send.disabled = true; status.className = ""; status.textContent = "Running selected benchmarks...";
+    try {
+      const response = await fetch("/benchmark", { method: "POST", body: form });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Benchmark failed");
+      result.hidden = false;
+      const rows = data.results.map(item => `<tr>
+        <td><b>${escapeHtml(item.provider)}</b></td>
+        <td>${escapeHtml(item.status === "ok" ? item.transcript : item.error || "Failed")}</td>
+        <td>${item.status === "ok" ? item.wer : "-"}</td>
+        <td>${item.status === "ok" ? item.cer : "-"}</td>
+        <td>${item.status === "ok" ? (item.exact_match ? "Yes" : "No") : "-"}</td>
+        <td>${item.latency_seconds}s</td>
+      </tr>`).join("");
+      const setup = Object.entries(data.setup_errors || {})
+        .map(([name, error]) => `<p class="error"><b>${escapeHtml(name)}:</b> ${escapeHtml(error)}</p>`)
+        .join("");
+      result.innerHTML = `${setup}<table>
+        <thead><tr><th>Provider</th><th>Transcript / error</th><th>WER</th><th>CER</th><th>Exact</th><th>Latency</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+      status.textContent = "Benchmark complete.";
+      nextCase.disabled = false;
+    } catch (error) { status.textContent = error.message; status.className = "error"; }
+    finally { send.disabled = false; }
+  };
+  nextCase.onclick = () => {
+    const index = cases.findIndex(item => item[0] === currentCaseId);
+    const language = document.querySelector("#language").value;
+    const candidates = cases.filter(item => item[1] === language);
+    const current = candidates.findIndex(item => item[0] === currentCaseId);
+    const item = candidates[(current + 1) % candidates.length];
+    document.querySelector(`[data-case="${item[0]}"]`)?.click();
+    result.hidden = true;
+    nextCase.disabled = true;
+  };
+  finalize.onclick = async () => {
+    finalize.disabled = true; status.textContent = "Generating report and graphs...";
+    try {
+      const response = await fetch("/finalize", { method: "POST" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not generate report");
+      status.innerHTML = `Report ready: <a href="${data.report}" target="_blank">open final report</a>.`;
+    } catch (error) { status.textContent = error.message; status.className = "error"; }
+    finally { finalize.disabled = false; }
+  };
+  function escapeHtml(value) {
+    return value.replace(/[&<>"']/g, char => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#039;" })[char]);
+  }
+</script>
+</body>
+</html>
